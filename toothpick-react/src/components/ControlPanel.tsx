@@ -55,6 +55,16 @@ export function ControlPanel() {
     items.sort((a, b) => b.count - a.count);
     return items;
   }, [clusterEnabled, colorPalette, toothpicks]);
+
+  // Export modal state
+  const [exportOpen, setExportOpen] = useState(false);
+  const [targetWidth, setTargetWidth] = useState<number>(300); // mm
+  const [paper, setPaper] = useState<'A4' | 'Letter' | 'A3' | 'Custom'>('A4');
+  const [paperW, setPaperW] = useState<number>(210);
+  const [paperH, setPaperH] = useState<number>(297);
+  // Margin fixed at 0.5 cm (5 mm) – no user control per request
+  const [overlap, setOverlap] = useState<number>(5);
+  // Grid and legend removed; always no grid, legend always included
   const setHighlightColor = useStore(state => state.setHighlightColor);
   
   const [updateTimer, setUpdateTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -264,7 +274,7 @@ export function ControlPanel() {
         <div className="space-y-3">
           <button
             onClick={toggleColorPicker}
-            className={`w-full px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`w-full px-4 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer ${
               colorPickerMode
                 ? 'bg-blue-500 text-white hover:bg-blue-600'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -282,7 +292,7 @@ export function ControlPanel() {
                   setBackgroundColor([r, g, b]);
                 }
               }}
-              className="px-3 py-2 bg-gray-200 rounded-md text-sm hover:bg-gray-300"
+              className="px-3 py-2 bg-gray-200 rounded-md text-sm hover:bg-gray-300 cursor-pointer"
             >
               Background
             </button>
@@ -295,7 +305,7 @@ export function ControlPanel() {
                   setCardboardColor([r, g, b]);
                 }
               }}
-              className="px-3 py-2 bg-gray-200 rounded-md text-sm hover:bg-gray-300"
+              className="px-3 py-2 bg-gray-200 rounded-md text-sm hover:bg-gray-300 cursor-pointer"
             >
               Cardboard
             </button>
@@ -310,26 +320,20 @@ export function ControlPanel() {
           Export
         </h2>
         <div className="space-y-2">
-          <button
-            onClick={() => {
-              if (toothpicks.length === 0) {
-                alert('Please generate a pattern first');
-                return;
-              }
-              
-              exportTemplate(
-                toothpicks,
-                imageWidth,
-                imageHeight,
-                'toothpick_template.pdf'
-              );
-            }}
-            className="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+              <button
+                onClick={() => {
+                  if (toothpicks.length === 0) {
+                    alert('Please generate a pattern first');
+                    return;
+                  }
+                  setExportOpen(true);
+                }}
+                className="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 cursor-pointer"
           >
             Export Template
           </button>
           
-          <button
+              <button
             onClick={() => {
               // Export color list
               if (colorPalette.length === 0) {
@@ -354,7 +358,7 @@ export function ControlPanel() {
               a.click();
               URL.revokeObjectURL(url);
             }}
-            className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 cursor-pointer"
           >
             Export Color List
           </button>
@@ -405,7 +409,7 @@ export function ControlPanel() {
                   <button
                     key={`${r}-${g}-${b}-${i}`}
                     onClick={() => setHighlightColor(isSelected ? null : [r, g, b])}
-                    className={`w-full flex items-center justify-between px-2 ${isSelected ? 'py-3 scale-[1.03] bg-gray-100' : 'py-2'} rounded-md hover:bg-gray-50 transition-all`}
+                    className={`w-full flex items-center justify-between px-2 ${isSelected ? 'py-3 scale-[1.03] bg-gray-100' : 'py-2'} rounded-md hover:bg-gray-50 transition-all cursor-pointer`}
                     title={`RGB(${r}, ${g}, ${b})`}
                   >
                     <span className="flex items-center space-x-3">
@@ -426,6 +430,79 @@ export function ControlPanel() {
         </div>
       )}
       </div>
+      {/* Export modal */}
+      {exportOpen && (
+        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center">
+          <div className="bg-white w-[560px] max-w-[95vw] rounded-lg shadow-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Export Template</h3>
+              <button className="text-gray-500 hover:text-gray-700" onClick={() => setExportOpen(false)}>✕</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Target Width (mm)</label>
+                <input type="number" value={targetWidth} onChange={(e)=>setTargetWidth(parseFloat(e.target.value)||0)} className="w-full border rounded px-2 py-1" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Paper</label>
+                <select value={paper} onChange={(e)=>setPaper(e.target.value as 'A4'|'Letter'|'A3'|'Custom')} className="w-full border rounded px-2 py-1">
+                  <option value="A4">A4</option>
+                  <option value="Letter">Letter</option>
+                  <option value="A3">A3</option>
+                  <option value="Custom">Custom</option>
+                </select>
+              </div>
+              {paper === 'Custom' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Paper Width (mm)</label>
+                    <input type="number" value={paperW} onChange={(e)=>setPaperW(parseFloat(e.target.value)||0)} className="w-full border rounded px-2 py-1" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Paper Height (mm)</label>
+                    <input type="number" value={paperH} onChange={(e)=>setPaperH(parseFloat(e.target.value)||0)} className="w-full border rounded px-2 py-1" />
+                  </div>
+                </>
+              )}
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Overlap (mm)</label>
+                <input type="number" value={overlap} onChange={(e)=>setOverlap(parseFloat(e.target.value)||0)} className="w-full border rounded px-2 py-1" />
+                <p className="text-xs text-gray-500 mt-1">Pages include a small overlap so you can tape sheets together accurately—trim or align by the page frame lines.</p>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end space-x-2">
+              <button className="px-3 py-2 rounded border" onClick={()=>setExportOpen(false)}>Cancel</button>
+              <button className="px-3 py-2 rounded bg-blue-600 text-white" onClick={()=>{
+                // convert units to mm
+                const toMM = (v:number)=> v; // fixed to millimeters
+                const cfg = {
+                  targetWidthMM: toMM(targetWidth),
+                  dotSizeMM: 2.0,
+                  paper,
+                  paperWMM: toMM(paperW),
+                  paperHMM: toMM(paperH),
+                  marginMM: 5, // fixed 0.5 cm
+                  overlapMM: toMM(overlap),
+                  legend: clusterEnabled
+                };
+                try {
+                  // Defer to next frame to keep this within a user gesture but after DOM updates
+                  requestAnimationFrame(() => {
+                    try {
+                      exportTemplate(toothpicks, imageWidth, imageHeight, 'toothpick_template.pdf', cfg);
+                    } catch (err) {
+                      console.error('Export failed:', err);
+                      alert('Export failed. Please check the console for details.');
+                    }
+                  });
+                } finally {
+                  setExportOpen(false);
+                }
+              }}>Export</button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* About Section */}
       <div className="p-4 border-t border-gray-200">
