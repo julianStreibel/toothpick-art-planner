@@ -7,6 +7,12 @@ interface AppStore {
   imageWidth: number;
   imageHeight: number;
   imageData: ImageData | null;
+  // Optional quantized image for clustering
+  // Stored here for reuse across toggles
+  
+  // Clustering controls
+  clusterEnabled: boolean;
+  kValue: number;
   
   // Pattern state
   patternType: PatternType;
@@ -26,6 +32,8 @@ interface AppStore {
   
   // Actions
   setImage: (url: string, width: number, height: number, data: ImageData) => void;
+  setClusterEnabled: (enabled: boolean) => void;
+  setKValue: (k: number) => void;
   setPatternType: (pattern: PatternType) => void;
   setToothpickCount: (count: number) => void;
   setToothpicks: (toothpicks: ToothpickPosition[]) => void;
@@ -44,6 +52,8 @@ export const useStore = create<AppStore>((set) => ({
   imageWidth: 100,
   imageHeight: 100,
   imageData: null,
+  clusterEnabled: false,
+  kValue: 16,
   
   patternType: 'grid',
   toothpickCount: 400,
@@ -65,6 +75,8 @@ export const useStore = create<AppStore>((set) => ({
     imageHeight: height,
     imageData: data
   }),
+  setClusterEnabled: (enabled) => set({ clusterEnabled: enabled }),
+  setKValue: (k) => set({ kValue: k }),
   setPatternType: (pattern) => set({ patternType: pattern }),
   setToothpickCount: (count) => set({ toothpickCount: count }),
   setToothpicks: (toothpicks) => set({ toothpicks }),

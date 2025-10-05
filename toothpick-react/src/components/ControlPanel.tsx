@@ -1,5 +1,5 @@
 import { Download, Eye, Grid, Palette, Settings } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
 import type { PatternType } from '../types';
 import { getColorAtPosition } from '../utils/imageProcessor';
@@ -24,22 +24,76 @@ export function ControlPanel() {
   const setToothpicks = useStore(state => state.setToothpicks);
   const imageUrl = useStore(state => state.imageUrl);
   const colorPalette = useStore(state => state.colorPalette);
+  const clusterEnabled = useStore(state => state.clusterEnabled);
+  const kValue = useStore(state => state.kValue);
   const setPatternType = useStore(state => state.setPatternType);
   const setToothpickCount = useStore(state => state.setToothpickCount);
   const colorPickerMode = useStore(state => state.colorPickerMode);
+  // NOTE: already declared above
   const setColorPickerMode = useStore(state => state.setColorPickerMode);
   const set2DMode = useStore(state => state.set2DMode);
   const setBackgroundColor = useStore(state => state.setBackgroundColor);
   const setCardboardColor = useStore(state => state.setCardboardColor);
   const toothpicks = useStore(state => state.toothpicks);
+  const setClusterEnabled = useStore(state => state.setClusterEnabled);
+  const setKValue = useStore(state => state.setKValue);
+  const setColorPalette = useStore(state => state.setColorPalette);
   
   const [updateTimer, setUpdateTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [pendingK, setPendingK] = useState<number>(kValue);
+  const quantCache = useRef<{
+    imageData: ImageData | null;
+    k: number;
+    quantized: ImageData;
+    palette: [number, number, number][];
+  } | null>(null);
+  const reqIdRef = useRef(0);
   
-  const updateToothpicks = useCallback(() => {
+  const updateToothpicks = useCallback(async (overrideK?: number) => {
     if (!imageData) return;
     
-    // Always use exact colors from the original image
-    const currentImageData = imageData;
+    // Decide which image data to draw from: clustered or original
+    let currentImageData = imageData;
+    const kNow = overrideK ?? (useStore.getState().kValue);
+    const clusterNow = useStore.getState().clusterEnabled;
+    if (clusterNow && kNow > 1) {
+      // Use cached quantization if available
+      const cached = quantCache.current;
+      if (cached && cached.imageData === imageData && cached.k === kNow) {
+        currentImageData = cached.quantized;
+        setColorPalette(cached.palette);
+      } else {
+        const myReq = ++reqIdRef.current;
+        try {
+          const { quantizeImportantColors } = await import('../utils/imageProcessor');
+          const { quantizedData, palette } = quantizeImportantColors(imageData, Math.max(2, Math.min(500, kNow)));
+          if (myReq !== reqIdRef.current) return; // stale
+          quantCache.current = { imageData, k: kNow, quantized: quantizedData, palette };
+          currentImageData = quantizedData;
+          setColorPalette(palette);
+        } catch {
+          // fall back to original image on error
+          currentImageData = imageData;
+        }
+      }
+    } else {
+      // Rebuild palette from original image (sampled up to 256 unique colors)
+      const unique = new Set<string>();
+      const pal: [number, number, number][] = [];
+      const src = imageData.data;
+      for (let i = 0; i < src.length; i += 4) {
+        const r = src[i];
+        const g = src[i + 1];
+        const b = src[i + 2];
+        const key = `${r},${g},${b}`;
+        if (!unique.has(key)) {
+          unique.add(key);
+          pal.push([r, g, b]);
+          if (pal.length >= 256) break;
+        }
+      }
+      setColorPalette(pal);
+    }
     
     // Calculate pattern dimensions
     const aspectRatio = imageWidth / imageHeight;
@@ -85,7 +139,7 @@ export function ControlPanel() {
     const toothpicks = createToothpicksFromPattern(positions, colorFunction);
     
     setToothpicks(toothpicks);
-  }, [imageData, patternType, toothpickCount, imageWidth, imageHeight, setToothpicks]);
+  }, [imageData, patternType, toothpickCount, imageWidth, imageHeight, setToothpicks, clusterEnabled, kValue, setColorPalette]);
   
   // Debounced update for toothpick count
   const handleToothpickCountChange = (count: number) => {
@@ -117,7 +171,11 @@ export function ControlPanel() {
   const toggleColorPicker = () => {
     const newMode = !colorPickerMode;
     setColorPickerMode(newMode);
+    // In color picker mode, switch to 2D top-down with fit-to-window
     set2DMode(newMode);
+    // Preserve toothpicks array (avoid transient clearing)
+    // Recompute only if image/pattern changed – here just re-assign current list
+    setToothpicks([...toothpicks]);
   };
   
   return (
@@ -292,6 +350,32 @@ export function ControlPanel() {
             <Settings className="w-5 h-5 mr-2" />
             Color Palette ({colorPalette.length})
           </h2>
+          {/* Clustering controls */}
+          <div className="mb-3 flex items-center justify-between">
+            <label className="text-sm text-gray-700">Enable Clustering</label>
+            <input
+              type="checkbox"
+              checked={clusterEnabled}
+              onChange={(e) => setClusterEnabled(e.target.checked)}
+            />
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Number of Colors: {pendingK}
+            </label>
+            <input
+              type="range"
+              min={2}
+              max={500}
+              step={1}
+              value={pendingK}
+              onChange={(e) => setPendingK(parseInt(e.target.value, 10))}
+              onMouseUp={() => { setKValue(pendingK); updateToothpicks(pendingK); }}
+              onTouchEnd={() => { setKValue(pendingK); updateToothpicks(pendingK); }}
+              className="w-full"
+              disabled={!clusterEnabled}
+            />
+          </div>
           <div className="grid grid-cols-8 gap-1">
             {colorPalette.slice(0, 32).map((color, i) => (
               <div

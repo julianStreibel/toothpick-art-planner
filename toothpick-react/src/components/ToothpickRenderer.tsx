@@ -32,13 +32,16 @@ function InstancedToothpicks({ toothpicks }: { toothpicks: ToothpickPosition[] }
   // Create geometry based on mode
   const geometry = useMemo(() => {
     if (colorPickerMode) {
-      // Use sphere for dots in color picker mode
-      return new THREE.SphereGeometry(5, 16, 16);
+      // Adaptive dot radius to avoid overlap: proportional to average spacing
+      const count = Math.max(1, toothpicks.length);
+      const avgSpacing = Math.sqrt((imageWidth * imageHeight) / count);
+      const radius = Math.max(0.2, Math.min(6, avgSpacing * 0.28));
+      return new THREE.SphereGeometry(radius, 12, 12);
     } else {
       // Use cylinder for toothpicks
       return new THREE.CylinderGeometry(0.5, 0.5, 30, 8);
     }
-  }, [colorPickerMode]);
+  }, [colorPickerMode, toothpicks.length, imageWidth, imageHeight]);
   
   // Simple material using per-instance colors
   const material = useMemo(() => {
@@ -61,10 +64,13 @@ function InstancedToothpicks({ toothpicks }: { toothpicks: ToothpickPosition[] }
     
     toothpicks.forEach((toothpick, i) => {
       // Position - center the toothpicks
+      const zCoord = colorPickerMode
+        ? (toothpick.y - imageHeight / 2)
+        : -(toothpick.y - imageHeight / 2);
       tempObject.position.set(
         toothpick.x - imageWidth / 2,
         toothpick.z,
-        -(toothpick.y - imageHeight / 2)
+        zCoord
       );
       tempObject.scale.set(1, 1, 1);
       tempObject.updateMatrix();
@@ -85,7 +91,7 @@ function InstancedToothpicks({ toothpicks }: { toothpicks: ToothpickPosition[] }
     if (mesh.material && 'needsUpdate' in mesh.material) {
       (mesh.material as THREE.Material).needsUpdate = true;
     }
-  }, [toothpicks, imageWidth, imageHeight]);
+  }, [toothpicks, imageWidth, imageHeight, colorPickerMode]);
   
   // Raycasting for hover/click
   const { raycaster, mouse, camera } = useThree();
@@ -146,10 +152,20 @@ function CameraController() {
   const is2DMode = useStore(state => state.is2DMode);
   const imageWidth = useStore(state => state.imageWidth);
   const imageHeight = useStore(state => state.imageHeight);
+  const colorPickerMode = useStore(state => state.colorPickerMode);
   
   const { camera, size } = useThree();
+  const saved = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
   
   useEffect(() => {
+    // Save once on first mount
+    if (!saved.current) {
+      saved.current = {
+        pos: camera.position.clone(),
+        target: new THREE.Vector3(0, 0, 0)
+      };
+    }
+    
     if (is2DMode) {
       // Switch to orthographic view
       camera.position.set(0, 100, 0);
@@ -157,19 +173,63 @@ function CameraController() {
       
       if (camera instanceof THREE.OrthographicCamera) {
         const aspect = size.width / size.height;
-        const frustumSize = Math.max(imageWidth, imageHeight) * 0.6;
-        camera.left = -frustumSize * aspect / 2;
-        camera.right = frustumSize * aspect / 2;
-        camera.top = frustumSize / 2;
-        camera.bottom = -frustumSize / 2;
+        // Fit the image to the window: choose frustum so that image fits width or height
+        const width = imageWidth;
+        const height = imageHeight;
+        const imgAspect = width / height;
+        let viewHalfW: number;
+        let viewHalfH: number;
+        if (imgAspect > aspect) {
+          // Image wider than viewport: fit width
+          viewHalfW = width / 2;
+          viewHalfH = viewHalfW / aspect;
+        } else {
+          // Image taller than viewport: fit height
+          viewHalfH = height / 2;
+          viewHalfW = viewHalfH * aspect;
+        }
+        camera.left = -viewHalfW;
+        camera.right = viewHalfW;
+        camera.top = viewHalfH;
+        camera.bottom = -viewHalfH;
         camera.updateProjectionMatrix();
       }
     } else {
-      // Perspective view
-      camera.position.set(imageWidth * 0.4, imageHeight * 0.3, imageWidth * 0.4);
-      camera.lookAt(0, 0, 0);
+      // Restore previous perspective position (do not reset on data changes)
+      const restore = saved.current;
+      if (restore) {
+        camera.position.copy(restore.pos);
+        camera.lookAt(restore.target);
+      }
     }
-  }, [is2DMode, camera, imageWidth, imageHeight, size]);
+  }, [is2DMode, camera, size, imageWidth, imageHeight]);
+
+  // Keep orthographic fit when colorPickerMode toggles
+  useEffect(() => {
+    if (colorPickerMode) {
+      // ensure we are in 2D mode sizing
+      if (camera instanceof THREE.OrthographicCamera) {
+        const aspect = size.width / size.height;
+        const width = imageWidth;
+        const height = imageHeight;
+        const imgAspect = width / height;
+        let viewHalfW: number;
+        let viewHalfH: number;
+        if (imgAspect > aspect) {
+          viewHalfW = width / 2;
+          viewHalfH = viewHalfW / aspect;
+        } else {
+          viewHalfH = height / 2;
+          viewHalfW = viewHalfH * aspect;
+        }
+        camera.left = -viewHalfW;
+        camera.right = viewHalfW;
+        camera.top = viewHalfH;
+        camera.bottom = -viewHalfH;
+        camera.updateProjectionMatrix();
+      }
+    }
+  }, [colorPickerMode, camera, size, imageWidth, imageHeight]);
   
   return null;
 }

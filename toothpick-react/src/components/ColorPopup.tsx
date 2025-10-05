@@ -11,8 +11,8 @@ function rgbToHsv(r: number, g: number, b: number): [number, number, number] {
   const diff = max - min;
   
   let h = 0;
-  let s = max === 0 ? 0 : diff / max;
-  let v = max;
+  const s = max === 0 ? 0 : diff / max;
+  const v = max;
   
   if (max !== min) {
     switch (max) {
@@ -97,12 +97,12 @@ export function ColorPopup() {
         minWidth: '200px'
       }}
     >
-      <div className="flex items-start space-x-3">
+      <div className="flex items-start space-x-4">
         <div
-          className="w-12 h-12 rounded border-2 border-gray-300 flex-shrink-0"
+          className="w-20 h-20 rounded border-2 border-gray-300 flex-shrink-0"
           style={{ backgroundColor: `rgb(${r}, ${g}, ${b})` }}
         />
-        <div className="text-sm space-y-1">
+        <div className="text-sm space-y-2">
           <div className="font-semibold">{colorName}</div>
           <div className="text-gray-600">RGB: {r}, {g}, {b}</div>
           <div className="text-gray-600">{hex}</div>
