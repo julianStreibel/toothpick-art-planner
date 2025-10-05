@@ -1,140 +1,122 @@
-# Toothpick Art Simulator - React Edition
+## Toothpick Art Simulator (React)
 
-A high-performance web application for simulating toothpick art, where colored toothpicks are arranged to create pixelated images. This React implementation offers significant performance improvements over the Python version.
+Create large-format toothpick art from any image with live 3D preview, exact-color rendering, fast color reduction, and print‑perfect PDF templates.
+All of it is vibe coded.
 
-## 🚀 Performance Improvements
+---
 
-### React vs Python Performance Comparison
+### Demo
 
-| Feature | Python/Vispy | React/Three.js | Improvement |
-|---------|--------------|----------------|-------------|
-| 1,000 toothpicks | ~15-30 FPS | 60+ FPS | **2-4x faster** |
-| 10,000 toothpicks | <5 FPS | 60+ FPS | **12x+ faster** |
-| Update speed | 100-500ms | <16ms | **6-30x faster** |
-| Memory usage | High (individual objects) | Low (instanced rendering) | **90% reduction** |
-| Hover detection | O(n) linear search | O(1) GPU picking | **Instant** |
 
-### Key Optimizations
+---
 
-1. **GPU Instancing**: All toothpicks rendered in a single draw call using `InstancedMesh`
-2. **Efficient Updates**: Only modified properties are updated, no full scene rebuilds
-3. **Web Workers Ready**: Color quantization can be moved to background threads
-4. **Optimized Raycasting**: Three.js provides efficient GPU-based picking
-5. **React Reconciliation**: Prevents unnecessary re-renders
+### Highlights
 
-## 🎨 Features
+- Exact color rendering (or reduced palette) for realistic preview
+- 60+ FPS with thousands of toothpicks via instanced rendering
+- Color Picker Mode with live hover info and dot highlighting
+- Fast, high‑quality color reduction (median‑cut + refinement)
+- Print‑perfect PDF export with tiling, fixed margins, overlap guides, and legend
 
-- **Image Processing**
-  - Load images (PNG, JPG, GIF, BMP)
-  - K-means color quantization (k=1 for gradients, k>1 for clustering)
-  - Real-time color palette extraction
+---
 
-- **Pattern Generation**
-  - Grid pattern
-  - Offset grid (brick-like)
-  - Hexagonal pattern
-  - Circular/radial pattern
-  - Dynamic toothpick count (1-10,000+)
+### Features
 
-- **3D Visualization**
-  - Interactive 3D view with orbit controls
-  - 2D orthographic mode for precise placement
-  - Customizable background and cardboard colors
-  - Smooth 60+ FPS even with thousands of toothpicks
+- Image import: PNG / JPG (drag & drop)
+- Patterns: Grid, Offset Grid, Hexagonal, Circular
+- Density: 1 – 10,000+ toothpicks
+- Color modes:
+  - Exact Colors (default)
+  - Color Reduction (“Color Reduction” toggle) with 2–500 colors
+  - Palette list sorted by frequency; click a color to highlight in Color Picker Mode
+- Background & Cardboard color pickers (modal color wheel with live preview)
+- Camera:
+  - 3D orbit view (rotate/zoom/pan)
+  - 2D top‑down in Color Picker Mode (fits to window)
+- Export (PDF):
+  - Units fixed to mm; margins fixed to 5 mm (0.5 cm)
+  - Choose Target Width (mm), Paper (A4/Letter/A3/Custom), Overlap (mm)
+  - Auto tiling with page frames and dashed “overlap end” indicators
+  - Dots are printed in color only (no stroke) at ~2.0 mm diameter
+  - Legend page auto‑included when Color Reduction is on
 
-- **Color Picker Mode**
-  - Toggle with button or 'C' key
-  - Hover over toothpicks to see color information
-  - Shows RGB, Hex, and HSV values
-  - Color name detection
+---
 
-- **Export Options**
-  - PDF template generation with grid and color positions
-  - Color palette export as text file
-  - Print-ready templates for physical artwork
+### Getting Started
 
-## 🛠️ Installation
+1) Install
 
 ```bash
-# Clone the repository
-git clone [repository-url]
-cd toothpick-react
-
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
 ```
 
-## 📖 Usage
+2) Open the app
 
-1. **Load an Image**: Click or drag an image into the upload area
-2. **Adjust Colors**: Use the k-NN slider (k=1 for original colors, higher for clustering)
-3. **Choose Pattern**: Select from grid, offset grid, hexagonal, or circular patterns
-4. **Set Toothpick Count**: Adjust the slider to control density (1-10,000)
-5. **Color Picker Mode**: Press 'C' or click the button to inspect individual colors
-6. **Export**: Generate PDF templates or export the color palette
+- Navigate to the dev server URL printed in your terminal (typically `http://localhost:5173`).
 
-## 🏗️ Technical Stack
+3) Load an image
 
-- **React 18** with TypeScript for type safety
-- **Three.js + React Three Fiber** for 3D rendering
-- **Zustand** for efficient state management
-- **Vite** for fast builds and HMR
-- **Tailwind CSS** for styling
-- **jsPDF** for template generation
+- Use the “Image” panel to drag & drop or click to select an image.
 
-## 🔧 Architecture Highlights
+4) Choose a pattern and density
 
-### Instanced Rendering
-```javascript
-// Single mesh instance for thousands of toothpicks
-<instancedMesh ref={meshRef} args={[geometry, material, count]}>
-  <cylinderGeometry args={[0.5, 0.5, 30]} />
-  <meshStandardMaterial vertexColors />
-</instancedMesh>
+- Set “Pattern Type” and the “Total Toothpicks” slider.
+
+5) Colors
+
+- Optional: enable “Color Reduction” to choose a palette size (2–500). The palette list is sorted by usage; click a color to highlight in Color Picker Mode.
+- Optional: set Background and Cardboard colors using the color‑wheel modal buttons.
+
+6) Inspect colors
+
+- Click “Color Picker Mode (C)” to switch to 2D. Hover dots to inspect RGB/HEX and names; click palette items to draw a red border around matching dots.
+
+7) Export PDF
+
+- Click “Export Template” and set:
+  - Target Width (mm): physical width of the final template
+  - Paper: A4 / Letter / A3 / Custom (mm)
+  - Overlap (mm): small area repeated on adjacent pages for easy taping
+- The export creates a multi‑page PDF with:
+  - Page frames (solid) and dashed lines marking the end of overlap areas
+  - Color dots at exact scaled positions (no stroke)
+  - A 50 mm scale bar and “Print at 100%” reminder
+  - Legend page (if Color Reduction is enabled)
+
+Assembly tip: print at 100% with no scaling; align pages by the frames. The dashed line indicates where the overlap ends.
+
+---
+
+### Controls & Shortcuts
+
+- Color Picker Mode: press `C` or click the button
+- Orbit Controls (3D): mouse/touch to rotate/zoom/pan
+- 2D mode (Picker): camera fits the image area; hover to inspect
+
+---
+
+### Tech Stack
+
+- React + TypeScript + Vite
+- Three.js + React Three Fiber (@react-three/fiber) + @react-three/drei
+- Zustand (state), Tailwind CSS (styles), jsPDF (PDF export)
+
+---
+
+### Development
+
+```bash
+npm install
+npm run dev
+
+# Lint
+npm run lint
+
+# Build
+npm run build
 ```
 
-### Efficient State Management
-```javascript
-// Zustand store with fine-grained updates
-const useStore = create((set) => ({
-  toothpicks: [],
-  setToothpicks: (toothpicks) => set({ toothpicks }),
-  // Only update what changes
-}))
-```
+---
 
-### Optimized Image Processing
-- K-means++ initialization for better color clustering
-- Efficient color quantization algorithm
-- Support for gradient mode (k=1)
 
-## 🚦 Performance Tips
-
-1. **Large Images**: The app handles full-resolution images efficiently
-2. **Toothpick Count**: 10,000+ toothpicks run smoothly at 60 FPS
-3. **Pattern Updates**: Debounced to prevent excessive recalculation
-4. **Color Picker**: Zero-cost hover detection using GPU picking
-
-## 📱 Browser Compatibility
-
-- Chrome 90+ (recommended)
-- Firefox 88+
-- Safari 14+
-- Edge 90+
-
-Requires WebGL 2.0 support for optimal performance.
-
-## 🔮 Future Enhancements
-
-- Export to 3D formats (GLTF, OBJ)
-- Animation support for toothpick placement
-- Multi-image blending
-- Custom pattern editor
-- PWA support for offline use
-
-## 📄 License
-
-MIT License - feel free to use for your artistic projects!
