@@ -8,6 +8,10 @@ All of it is vibe coded.
 ### Demo
 
 
+https://github.com/user-attachments/assets/43c36d9d-46c4-4133-a9bd-1b33f03486c9
+
+
+
 ---
 
 ### Highlights
