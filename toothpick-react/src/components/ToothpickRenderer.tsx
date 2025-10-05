@@ -20,7 +20,9 @@ function isWebGLAvailable() {
 // Optimized instanced toothpicks component
 function InstancedToothpicks({ toothpicks }: { toothpicks: ToothpickPosition[] }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
+  const highlightMeshRef = useRef<THREE.InstancedMesh>(null);
   const colorPickerMode = useStore(state => state.colorPickerMode);
+  const highlightColor = useStore(state => state.highlightColor);
   const setHoveredToothpick = useStore(state => state.setHoveredToothpick);
   const setSelectedToothpick = useStore(state => state.setSelectedToothpick);
   const imageWidth = useStore(state => state.imageWidth);
@@ -47,6 +49,11 @@ function InstancedToothpicks({ toothpicks }: { toothpicks: ToothpickPosition[] }
   const material = useMemo(() => {
     return new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: false, toneMapped: false });
   }, []);
+
+  // Outline material for picker mode (red border), rendered with slightly larger spheres
+  const outlineMaterial = useMemo(() => {
+    return new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0, 0), side: THREE.BackSide, toneMapped: false });
+  }, []);
   
   // Update instance matrices and colors
   useEffect(() => {
@@ -55,6 +62,9 @@ function InstancedToothpicks({ toothpicks }: { toothpicks: ToothpickPosition[] }
     const mesh = meshRef.current;
     const tempObject = new THREE.Object3D();
     const tempColor = new THREE.Color();
+    const outlineMesh = highlightMeshRef.current;
+    let outlineCount = 0;
+    const tempOutline = new THREE.Object3D();
     
     // Ensure instanceColor attribute exists before setColorAt (older versions)
     if (!mesh.instanceColor) {
@@ -63,19 +73,37 @@ function InstancedToothpicks({ toothpicks }: { toothpicks: ToothpickPosition[] }
     }
     
     toothpicks.forEach((toothpick, i) => {
-      // Position - center the toothpicks
+      // Position - center the toothpicks. Mirror X in 3D mode so image isn't left-right flipped.
+      const xCoord = colorPickerMode
+        ? (toothpick.x - imageWidth / 2)
+        : -(toothpick.x - imageWidth / 2);
       const zCoord = colorPickerMode
         ? (toothpick.y - imageHeight / 2)
         : -(toothpick.y - imageHeight / 2);
       tempObject.position.set(
-        toothpick.x - imageWidth / 2,
+        xCoord,
         toothpick.z,
         zCoord
       );
       tempObject.scale.set(1, 1, 1);
       tempObject.updateMatrix();
       mesh.setMatrixAt(i, tempObject.matrix);
+
+      // If highlighted color and in picker mode, record a slightly scaled matrix for outline mesh
+      if (
+        colorPickerMode && highlightColor &&
+        toothpick.color[0] === highlightColor[0] &&
+        toothpick.color[1] === highlightColor[1] &&
+        toothpick.color[2] === highlightColor[2] &&
+        outlineMesh
+      ) {
+        tempOutline.position.copy(tempObject.position);
+        tempOutline.scale.set(1.2, 1.2, 1.2);
+        tempOutline.updateMatrix();
+        outlineMesh.setMatrixAt(outlineCount++, tempOutline.matrix);
+      }
       
+      // Always set base instance color (no red tint). Border is drawn by outline mesh only.
       tempColor
         .setRGB(
           toothpick.color[0] / 255,
@@ -91,7 +119,11 @@ function InstancedToothpicks({ toothpicks }: { toothpicks: ToothpickPosition[] }
     if (mesh.material && 'needsUpdate' in mesh.material) {
       (mesh.material as THREE.Material).needsUpdate = true;
     }
-  }, [toothpicks, imageWidth, imageHeight, colorPickerMode]);
+    if (outlineMesh && colorPickerMode) {
+      outlineMesh.count = outlineCount;
+      outlineMesh.instanceMatrix.needsUpdate = true;
+    }
+  }, [toothpicks, imageWidth, imageHeight, colorPickerMode, highlightColor]);
   
   // Raycasting for hover/click
   const { raycaster, mouse, camera } = useThree();
@@ -124,12 +156,22 @@ function InstancedToothpicks({ toothpicks }: { toothpicks: ToothpickPosition[] }
   };
   
   return (
-    <instancedMesh
-      key={toothpicks.length}
-      ref={meshRef}
-      args={[geometry, material, toothpicks.length]}
-      onClick={handleClick}
-    />
+    <>
+      <instancedMesh
+        key={`base-${toothpicks.length}`}
+        ref={meshRef}
+        args={[geometry, material, toothpicks.length]}
+        onClick={handleClick}
+      />
+      {colorPickerMode && highlightColor && (
+        <instancedMesh
+          key={`outline-${toothpicks.length}`}
+          ref={highlightMeshRef}
+          args={[geometry, outlineMaterial, Math.max(1, toothpicks.length)]}
+          frustumCulled={false}
+        />
+      )}
+    </>
   );
 }
 

@@ -26,6 +26,7 @@ interface AppStore {
   is2DMode: boolean;
   hoveredToothpick: ToothpickPosition | null;
   selectedToothpick: ToothpickPosition | null;
+  highlightColor: [number, number, number] | null;
   
   // Colors
   colorPalette: [number, number, number][];
@@ -44,6 +45,7 @@ interface AppStore {
   setHoveredToothpick: (toothpick: ToothpickPosition | null) => void;
   setSelectedToothpick: (toothpick: ToothpickPosition | null) => void;
   setColorPalette: (palette: [number, number, number][]) => void;
+  setHighlightColor: (color: [number, number, number] | null) => void;
 }
 
 export const useStore = create<AppStore>((set) => ({
@@ -65,6 +67,7 @@ export const useStore = create<AppStore>((set) => ({
   is2DMode: false,
   hoveredToothpick: null,
   selectedToothpick: null,
+  highlightColor: null,
   
   colorPalette: [],
   
@@ -87,4 +90,5 @@ export const useStore = create<AppStore>((set) => ({
   setHoveredToothpick: (toothpick) => set({ hoveredToothpick: toothpick }),
   setSelectedToothpick: (toothpick) => set({ selectedToothpick: toothpick }),
   setColorPalette: (palette) => set({ colorPalette: palette }),
+  setHighlightColor: (color) => set({ highlightColor: color }),
 }));

@@ -1,5 +1,5 @@
 import { Download, Eye, Grid, Palette, Settings } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
 import type { PatternType } from '../types';
 import { getColorAtPosition } from '../utils/imageProcessor';
@@ -38,6 +38,24 @@ export function ControlPanel() {
   const setClusterEnabled = useStore(state => state.setClusterEnabled);
   const setKValue = useStore(state => state.setKValue);
   const setColorPalette = useStore(state => state.setColorPalette);
+  const highlightColor = useStore(state => state.highlightColor);
+
+  // Build list of palette colors with counts, sorted descending by count
+  const paletteWithCounts = useMemo(() => {
+    if (!clusterEnabled) return [] as { color: [number, number, number]; count: number }[];
+    const items: { color: [number, number, number]; count: number }[] = colorPalette.map((c) => ({ color: c, count: 0 }));
+    // Make a quick lookup from string to index
+    const indexByKey = new Map<string, number>();
+    items.forEach((it, idx) => indexByKey.set(it.color.join(','), idx));
+    for (const tp of toothpicks) {
+      const key = `${tp.color[0]},${tp.color[1]},${tp.color[2]}`;
+      const idx = indexByKey.get(key);
+      if (idx !== undefined) items[idx].count++;
+    }
+    items.sort((a, b) => b.count - a.count);
+    return items;
+  }, [clusterEnabled, colorPalette, toothpicks]);
+  const setHighlightColor = useStore(state => state.setHighlightColor);
   
   const [updateTimer, setUpdateTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [pendingK, setPendingK] = useState<number>(kValue);
@@ -352,13 +370,14 @@ export function ControlPanel() {
           </h2>
           {/* Clustering controls */}
           <div className="mb-3 flex items-center justify-between">
-            <label className="text-sm text-gray-700">Enable Clustering</label>
+            <label className="text-sm text-gray-700">Color Reduction</label>
             <input
               type="checkbox"
               checked={clusterEnabled}
               onChange={(e) => setClusterEnabled(e.target.checked)}
             />
           </div>
+          {clusterEnabled && (
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Number of Colors: {pendingK}
@@ -376,16 +395,29 @@ export function ControlPanel() {
               disabled={!clusterEnabled}
             />
           </div>
-          <div className="grid grid-cols-8 gap-1">
-            {colorPalette.slice(0, 32).map((color, i) => (
-              <div
-                key={i}
-                className="w-8 h-8 rounded border border-gray-300"
-                style={{ backgroundColor: `rgb(${color[0]}, ${color[1]}, ${color[2]})` }}
-                title={`RGB(${color[0]}, ${color[1]}, ${color[2]})`}
-              />
-            ))}
-          </div>
+          )}
+          {clusterEnabled ? (
+            <div className="space-y-0 overflow-auto max-h-[60vh] pb-2">
+              {paletteWithCounts.map(({ color, count }, i) => {
+                const [r, g, b] = color;
+                const isSelected = !!highlightColor && highlightColor[0] === r && highlightColor[1] === g && highlightColor[2] === b;
+                return (
+                  <button
+                    key={`${r}-${g}-${b}-${i}`}
+                    onClick={() => setHighlightColor(isSelected ? null : [r, g, b])}
+                    className={`w-full flex items-center justify-between px-2 ${isSelected ? 'py-3 scale-[1.03] bg-gray-100' : 'py-2'} rounded-md hover:bg-gray-50 transition-all`}
+                    title={`RGB(${r}, ${g}, ${b})`}
+                  >
+                    <span className="flex items-center space-x-3">
+                      <span className={`inline-block ${isSelected ? 'w-10 h-10' : 'w-5 h-5'} rounded border`} style={{ backgroundColor: `rgb(${r}, ${g}, ${b})` }} />
+                      <span className={`text-sm ${isSelected ? 'font-medium' : 'text-gray-700'}`}>{`RGB(${r}, ${g}, ${b})`}</span>
+                    </span>
+                    <span className="text-sm text-gray-600">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
           {colorPalette.length > 32 && (
             <p className="text-xs text-gray-500 mt-1">
               +{colorPalette.length - 32} more colors
