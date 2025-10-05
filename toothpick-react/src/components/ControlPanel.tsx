@@ -12,6 +12,7 @@ import {
     generateOffsetGridPattern
 } from '../utils/patternGenerator';
 import { exportTemplate } from '../utils/templateExporter';
+import { ColorWheel } from './ColorWheel';
 import { ImageUploader } from './ImageUploader';
 
 export function ControlPanel() {
@@ -32,6 +33,8 @@ export function ControlPanel() {
   // NOTE: already declared above
   const setColorPickerMode = useStore(state => state.setColorPickerMode);
   const set2DMode = useStore(state => state.set2DMode);
+  const backgroundColor = useStore(state => state.backgroundColor);
+  const cardboardColor = useStore(state => state.cardboardColor);
   const setBackgroundColor = useStore(state => state.setBackgroundColor);
   const setCardboardColor = useStore(state => state.setCardboardColor);
   const toothpicks = useStore(state => state.toothpicks);
@@ -58,6 +61,7 @@ export function ControlPanel() {
 
   // Export modal state
   const [exportOpen, setExportOpen] = useState(false);
+  const [colorModal, setColorModal] = useState<null | 'bg' | 'card'>(null);
   const [targetWidth, setTargetWidth] = useState<number>(300); // mm
   const [paper, setPaper] = useState<'A4' | 'Letter' | 'A3' | 'Custom'>('A4');
   const [paperW, setPaperW] = useState<number>(210);
@@ -285,29 +289,18 @@ export function ControlPanel() {
           
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={() => {
-                const color = prompt('Enter RGB values (0-1) separated by commas:', '0.95,0.95,0.95');
-                if (color) {
-                  const [r, g, b] = color.split(',').map(v => parseFloat(v.trim()));
-                  setBackgroundColor([r, g, b]);
-                }
-              }}
-              className="px-3 py-2 bg-gray-200 rounded-md text-sm hover:bg-gray-300 cursor-pointer"
+              className="px-3 py-2 bg-gray-200 rounded-md text-sm hover:bg-gray-300 cursor-pointer flex items-center justify-between"
+              onClick={()=>setColorModal('bg')}
             >
-              Background
+              <span>Background Color</span>
+              <span className="inline-block w-5 h-5 rounded border" style={{ backgroundColor: `rgb(${Math.round(backgroundColor[0]*255)}, ${Math.round(backgroundColor[1]*255)}, ${Math.round(backgroundColor[2]*255)})` }} />
             </button>
-            
             <button
-              onClick={() => {
-                const color = prompt('Enter RGB values (0-1) separated by commas:', '0.8,0.6,0.4');
-                if (color) {
-                  const [r, g, b] = color.split(',').map(v => parseFloat(v.trim()));
-                  setCardboardColor([r, g, b]);
-                }
-              }}
-              className="px-3 py-2 bg-gray-200 rounded-md text-sm hover:bg-gray-300 cursor-pointer"
+              className="px-3 py-2 bg-gray-200 rounded-md text-sm hover:bg-gray-300 cursor-pointer flex items-center justify-between"
+              onClick={()=>setColorModal('card')}
             >
-              Cardboard
+              <span>Cardboard Color</span>
+              <span className="inline-block w-5 h-5 rounded border" style={{ backgroundColor: `rgb(${Math.round(cardboardColor[0]*255)}, ${Math.round(cardboardColor[1]*255)}, ${Math.round(cardboardColor[2]*255)})` }} />
             </button>
           </div>
         </div>
@@ -319,7 +312,7 @@ export function ControlPanel() {
           <Download className="w-5 h-5 mr-2" />
           Export
         </h2>
-        <div className="space-y-2">
+              <div className="space-y-2">
               <button
                 onClick={() => {
                   if (toothpicks.length === 0) {
@@ -331,36 +324,6 @@ export function ControlPanel() {
                 className="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 cursor-pointer"
           >
             Export Template
-          </button>
-          
-              <button
-            onClick={() => {
-              // Export color list
-              if (colorPalette.length === 0) {
-                alert('Please load an image first');
-                return;
-              }
-              
-              let text = 'Toothpick Art Color Palette\n';
-              text += '=' .repeat(40) + '\n\n';
-              
-              colorPalette.forEach((color, i) => {
-                const [r, g, b] = color;
-                const hex = '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
-                text += `Color ${i + 1}: RGB(${r}, ${g}, ${b}) ${hex}\n`;
-              });
-              
-              const blob = new Blob([text], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'color_palette.txt';
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
-                className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 cursor-pointer"
-          >
-            Export Color List
           </button>
         </div>
       </div>
@@ -499,6 +462,25 @@ export function ControlPanel() {
                   setExportOpen(false);
                 }
               }}>Export</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Color picker modal */}
+      {colorModal && (
+        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center">
+          <div className="bg-white w-[520px] max-w-[95vw] rounded-lg shadow-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">{colorModal === 'bg' ? 'Background' : 'Cardboard'} Color</h3>
+              <button className="text-gray-500 hover:text-gray-700" onClick={()=>setColorModal(null)}>✕</button>
+            </div>
+            <ColorWheel
+              label={colorModal === 'bg' ? 'Background' : 'Cardboard'}
+              color={colorModal === 'bg' ? backgroundColor : cardboardColor}
+              onChange={(rgb)=> colorModal === 'bg' ? setBackgroundColor(rgb) : setCardboardColor(rgb)}
+            />
+            <div className="mt-4 flex justify-end">
+              <button className="px-3 py-2 rounded border" onClick={()=>setColorModal(null)}>Close</button>
             </div>
           </div>
         </div>
